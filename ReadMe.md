@@ -1,6 +1,6 @@
 # h264EncodeInfoEditor
 
-A script that edit h264 bit stream encoder info.  
+A script to edit H.264 encoder information.
 
 * Before   
 	```
@@ -63,16 +63,26 @@ A script that edit h264 bit stream encoder info.
 	```
 ## Some Example
 
-* `python h264EncodeInfoEditor.py -i <input.h264> -o <output.h264> -s "Chigusa H264 Encoder Info Test"`
+* Input h264 file, output h264 file.
+	```
+	python h264EncodeInfoEditor.py -i <input.h264> -o <output.h264> -s "Chigusa H264 Encoder Info Test"
+	```
 
-* `ffmpeg -i <input.mp4> -c:v copy -an -bsf:v h264_mp4toannexb -f h264 - | python h264EncodeInfoEditor.py -i - -o <output.h264> -s "Chigusa H264 Encoder Info Test"`
+* Demux MP4 file to h264 stream by ffmpeg, and pipe to stdin, output h264 file.
+	```
+	ffmpeg -i <input.mp4> -c:v copy -an -bsf:v h264_mp4toannexb -f h264 - | python h264EncodeInfoEditor.py -i - -o <output.h264> -s "Chigusa H264 Encoder Info Test"
+	```
 
-* `python h264EncodeInfoEditor.py -i <input.h264> -o - -s "Chigusa H264 Encoder Info Test" | ffmpeg -f h264 -i - -c:v copy 1.mp4`
+* Input h264 file, pipe h264 stream to ffmpeg, and mux to mp4 file.
+
+	```
+	python h264EncodeInfoEditor.py -i <input.h264> -o - -s "Chigusa H264 Encoder Info Test" | ffmpeg -f h264 -i - -c:v copy 1.mp4
+	```
 
 ## Usage
 
 ```
-A script that edit h264 bit stream encoder info.
+A script to edit H.264 encoder information.
 usage: h264EncodeInfoEditor.py [options]
 
 [Options]

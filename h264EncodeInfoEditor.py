@@ -43,7 +43,7 @@ def pipe(_input, _output, _str):
 
 
 def print_help():
-    print("""A script that edit h264 bit stream encoder info.
+    print("""A script to edit H.264 encoder information.
 usage: h264EncodeInfoEditor.py [options]
     
 [Options]
