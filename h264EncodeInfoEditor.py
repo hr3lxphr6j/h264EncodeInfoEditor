@@ -16,18 +16,22 @@ def enc_sei_user_data(_uuid: bytes, _data: str) -> bytes:
 
 
 def pipe(_input, _output, _str):
-    offset = 0
-    if _input.read(6) == sei_user_data_header:
+    head = _input.read(6)
+    if head == sei_user_data_header:
         length = 0
         while 1:
             b = _input.read(1)
             if b != b'\xff':
-                length += int.from_bytes(_input.read(1), byteorder="little")
+                length += int.from_bytes(b, byteorder="little")
                 break
-            length += 255
-        offset = length + 1
-    _input.read(offset)
-    _output.write(enc_sei_user_data(uuid, _str))
+            else:
+                length += 255
+        print("[Original Writing library]: " + _input.read(length + 1)[16:-2].decode(), file=sys.stderr)
+        _output.write(enc_sei_user_data(uuid, _str))
+    else:
+        print("[Original Writing library]: NULL", file=sys.stderr)
+        _output.write(enc_sei_user_data(uuid, _str))
+        _output.write(head)
     while 1:
         buff = _input.readline()
         if len(buff) == 0:
@@ -35,6 +39,7 @@ def pipe(_input, _output, _str):
         _output.write(buff)
     _input.close()
     _output.close()
+    print("OVER!", file=sys.stderr)
 
 
 def print_help():
