@@ -76,7 +76,12 @@ A script to edit H.264 encoder information.
 * Input h264 file, pipe h264 stream to ffmpeg, and mux to mp4 file.
 
 	```
-	python h264EncodeInfoEditor.py -i <input.h264> -o - -s "Chigusa H264 Encoder Info Test" | ffmpeg -f h264 -i - -c:v copy 1.mp4
+	python h264EncodeInfoEditor.py -i <input.h264> -o - -s "Chigusa H264 Encoder Info Test" | ffmpeg -f h264 -i - -c:v copy <output.mp4>
+	```
+
+* Demux MP4 file to h264 stream by ffmpeg, and pipe to stdin, pipe h264 stream to ffmpeg, and mux to mp4 file.
+	```
+	ffmpeg -i <input.mp4> -c:v copy -an -map_metadata -1 -f h264 - | python h264EncodeInfoEditor.py -i - -o - -s "Chigusa H264 Encoder Info Test" | ffmpeg -f h264 -i - -i <input.mp4> -map 0 -map 1:a -c copy <output.mp4>
 	```
 
 ## Usage
