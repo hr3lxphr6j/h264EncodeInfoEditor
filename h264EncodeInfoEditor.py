@@ -15,31 +15,38 @@ def enc_sei_user_data(_uuid: bytes, _data: str) -> bytes:
     return sei_user_data_header + sei_length + _uuid + data_byte + b'\x00\x80'
 
 
-def pipe(_input, _output, _str):
-    head = _input.read(6)
-    if head == sei_user_data_header:
-        length = 0
-        while 1:
-            b = _input.read(1)
-            if b != b'\xff':
-                length += int.from_bytes(b, byteorder="little")
-                break
-            else:
-                length += 255
-        print("[Original Writing library]: " + _input.read(length + 1)[16:-2].decode(), file=sys.stderr)
-        _output.write(enc_sei_user_data(uuid, _str))
-    else:
-        print("[Original Writing library]: NULL", file=sys.stderr)
-        _output.write(enc_sei_user_data(uuid, _str))
-        _output.write(head)
+def pipe_v2(_input, _output, _str):
+    # Write SEI NAL as first NAL
+    _output.write(enc_sei_user_data(uuid, _str))
+    # Parse input stream
+    buf = b''
     while 1:
-        buff = _input.readline()
-        if len(buff) == 0:
+        b = _input.read(1)
+        if len(b) == 0:
+            _output.write(buf)
             break
-        _output.write(buff)
-    _input.close()
-    _output.close()
-    print("OVER!", file=sys.stderr)
+        else:
+            buf += b
+
+        if buf[-3:] == b'\x00\x00\x01':  # New NAL
+            if buf[-4::1] == b'\x00':  # Start code is 0x00 0x00 0x00 0x01
+                _output.write(buf[:-4])  # flush last nal to output
+                buf = buf[-4:] + _input.read(2)
+            else:  # Start code is 0x00 0x00 0x01
+                _output.write(buf[:-3])  # flush last nal to output
+                buf = buf[-3:] + _input.read(2)
+            if buf[-2:] == b'\x06\x05':  # sei user data
+                length = 0
+                while 1:
+                    b = _input.read(1)
+                    if b != b'\xff':
+                        length += int.from_bytes(b, byteorder="little")
+                        break
+                    else:
+                        length += 255
+                print("[Original Writing library]: " + _input.read(length + 1)[16:-2].decode(), file=sys.stderr)
+                buf = b''
+                pass
 
 
 def print_help():
@@ -82,7 +89,7 @@ def main():
     flag = parse_arg(sys.argv[1:])
     i = sys.stdin.buffer if flag['input'] == "-" else open(flag['input'], 'rb')
     o = sys.stdout.buffer if flag['output'] == "-" else open(flag['output'], 'wb')
-    pipe(i, o, flag['str'])
+    pipe_v2(i, o, flag['str'])
 
 
 if __name__ == '__main__':
