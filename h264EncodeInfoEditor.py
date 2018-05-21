@@ -20,6 +20,7 @@ def pipe_v2(_input, _output, _str):
     _output.write(enc_sei_user_data(uuid, _str))
     # Parse input stream
     buf = b''
+    nal_count = 0
     while 1:
         b = _input.read(1)
         if len(b) == 0:
@@ -27,8 +28,13 @@ def pipe_v2(_input, _output, _str):
             break
         else:
             buf += b
-
+        if len(buf) < 3:
+            continue
         if buf[-3:] == b'\x00\x00\x01':  # New NAL
+            nal_count += 1
+            if nal_count > 10:
+                _output.write(buf)
+                break
             if buf[-4::1] == b'\x00':  # Start code is 0x00 0x00 0x00 0x01
                 _output.write(buf[:-4])  # flush last nal to output
                 buf = buf[-4:] + _input.read(2)
@@ -45,8 +51,15 @@ def pipe_v2(_input, _output, _str):
                     else:
                         length += 255
                 print("[Original Writing library]: " + _input.read(length + 1)[16:-2].decode(), file=sys.stderr)
-                buf = b''
+                break
                 pass
+    while 1:
+        b = _input.readlines()
+        if len(b) == 0:
+            break
+        _output.writelines(b)
+    _input.close()
+    _output.close()
 
 
 def print_help():
