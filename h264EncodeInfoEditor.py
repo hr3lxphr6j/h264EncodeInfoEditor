@@ -1,5 +1,7 @@
+#!/usr/bin/env python3
+
 import sys
-import getopt
+from argparse import ArgumentParser
 
 uuid = b'\xDC\x45\xE9\xBD\xE6\xD9\x48\xB7\x96\x2C\xD8\x20\xD9\x23\xEE\xEF'
 sei_user_data_header = b'\x00\x00\x00\x01\x06\x05'
@@ -15,44 +17,77 @@ def enc_sei_user_data(_uuid: bytes, _data: str) -> bytes:
     return sei_user_data_header + sei_length + _uuid + data_byte + b'\x00\x80'
 
 
-def pipe_v2(_input, _output, _str):
-    # Write SEI NAL as first NAL
-    _output.write(enc_sei_user_data(uuid, _str))
-    # Parse input stream
+def pipe_v3(_input, _output, _str):
+    _flag = 0
+    '''
+    0
+    
+    1   =>  00
+    2   =>  00 00
+    3   =>  00 00 00
+
+    6   =>  00 00 01
+    7   =>  00 00 00 01
+    '''
     buf = b''
-    nal_count = 0
+    _output.write(enc_sei_user_data(uuid, _str))
     while 1:
         b = _input.read(1)
         if len(b) == 0:
+            # EOF
             _output.write(buf)
             break
+
+        buf += b
+
+        if b == b'\x00':
+            if _flag in [0, 1, 2]:
+                _flag += 1
+            else:
+                _flag = 0
+                _output.write(buf)
+                buf = b''
+                continue
+        elif b == b'\x01':
+            if _flag == 2:
+                _flag = 6
+            elif _flag == 3:
+                _flag = 7
+            else:
+                _flag = 0
+                _output.write(buf)
+                buf = b''
+                continue
         else:
-            buf += b
-        if len(buf) < 3:
+            _flag = 0
+            _output.write(buf)
+            buf = b''
             continue
-        if buf[-3:] == b'\x00\x00\x01':  # New NAL
-            nal_count += 1
-            if nal_count > 10:
+
+        if _flag in [6, 7]:
+            # find NALU
+            b = _input.read(2)
+            buf += b
+            if len(b) < 2:
+                # EOF
                 _output.write(buf)
                 break
-            if buf[-4::1] == b'\x00':  # Start code is 0x00 0x00 0x00 0x01
-                _output.write(buf[:-4])  # flush last nal to output
-                buf = buf[-4:] + _input.read(2)
-            else:  # Start code is 0x00 0x00 0x01
-                _output.write(buf[:-3])  # flush last nal to output
-                buf = buf[-3:] + _input.read(2)
-            if buf[-2:] == b'\x06\x05':  # sei user data
-                length = 0
-                while 1:
-                    b = _input.read(1)
-                    if b != b'\xff':
-                        length += int.from_bytes(b, byteorder="little")
-                        break
-                    else:
-                        length += 255
-                print("[Original Writing library]: " + _input.read(length + 1)[16:-2].decode(), file=sys.stderr)
-                break
-                pass
+            if b != b'\x06\x05':
+                _flag = 0
+                _output.write(buf)
+                continue
+            length = 0
+            while 1:
+                b = _input.read(1)
+                if b != b'\xff':
+                    length += int.from_bytes(b, byteorder="little")
+                    break
+                else:
+                    length += 255
+            print("[Original Writing library]: {}".format(_input.read(length + 1)[16:-2].decode()), file=sys.stderr)
+            _flag = 0
+            buf = b''
+            break
     while 1:
         b = _input.readlines()
         if len(b) == 0:
@@ -62,47 +97,33 @@ def pipe_v2(_input, _output, _str):
     _output.close()
 
 
-def print_help():
-    print("""A script to edit H.264 encoder information.
-usage: h264EncodeInfoEditor.py [options]
-    
-[Options]
--h  print this help.
--i  input h264 bit stream, '-' will read stream from std in.
--o  output h264 bit stream, '-' will write stream from std out.
--s  info what you want write.
-""", file=sys.stderr)
+def _open_input(s):
+    if s == '-':
+        return sys.stdin.buffer
+    else:
+        return open(s, 'rb')
 
 
-def parse_arg(argv: list) -> dict:
-    try:
-        opts, args = getopt.getopt(argv, 'i:o:s:h')
-    except getopt.GetoptError:
-        print_help()
-        exit(2)
-    flag = {}
-    for opt, arg in opts:
-        if opt == '-h':
-            print_help()
-            exit(0)
-        elif opt == '-i':
-            flag['input'] = arg
-        elif opt == '-o':
-            flag['output'] = arg
-        elif opt == '-s':
-            flag['str'] = arg
-        pass
-    return flag
+def _open_output(s):
+    if s == '-':
+        return sys.stdout.buffer
+    else:
+        return open(s, 'wb')
+
+
+def parse_args():
+    parser = ArgumentParser(prog='h264EncodeInfoEditor', description='A script to edit H.264 encoder information')
+    parser.add_argument('-i', '--input', required=True, type=_open_input,
+                        help='input h264 bit stream, \' - \' will read stream from stdin')
+    parser.add_argument('-o', '--output', required=True, type=_open_output,
+                        help='output h264 bit stream, \' - \' will write stream from stdout')
+    parser.add_argument('-s', '--string', required=True, type=str, help='info what you want write')
+    return parser.parse_args()
 
 
 def main():
-    if len(sys.argv[1:]) == 0:
-        print_help()
-        exit(1)
-    flag = parse_arg(sys.argv[1:])
-    i = sys.stdin.buffer if flag['input'] == "-" else open(flag['input'], 'rb')
-    o = sys.stdout.buffer if flag['output'] == "-" else open(flag['output'], 'wb')
-    pipe_v2(i, o, flag['str'])
+    args = parse_args()
+    pipe_v3(args.input, args.output, args.string)
 
 
 if __name__ == '__main__':

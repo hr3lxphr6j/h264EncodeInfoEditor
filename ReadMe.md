@@ -87,12 +87,19 @@ A script to edit H.264 encoder information.
 ## Usage
 
 ```
-A script to edit H.264 encoder information.
-usage: h264EncodeInfoEditor.py [options]
+usage: h264EncodeInfoEditor [-h] -i INPUT -o OUTPUT -s STRING
 
-[Options]
--h  print this help.
--i  input h264 bit stream, '-' will read stream from std in.
--o  output h264 bit stream, '-' will write stream from std out.
--s  info what you want write.
+A script to edit H.264 encoder information
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -i INPUT, --input INPUT
+                        input h264 bit stream, ' - ' will read stream from
+                        stdin
+  -o OUTPUT, --output OUTPUT
+                        output h264 bit stream, ' - ' will write stream from
+                        stdout
+  -s STRING, --string STRING
+                        info what you want write
+
 ```
